@@ -44,7 +44,7 @@ namespace RouterTaskbarMonitor
         public AppConfig()
         {
             RouterUrl = "http://192.168.0.1";
-            RouterPassword = EnvLoader.Get("ROUTER_PASSWORD") ?? "";
+            RouterPassword = Environment.GetEnvironmentVariable("ROUTER_PASSWORD") ?? "";
             RefreshIntervalSeconds = 2;
             Line1Metric = MetricType.CombinedSpeed;
             Line2Metric = MetricType.CombinedSignal;
@@ -178,8 +178,8 @@ namespace RouterTaskbarMonitor
     public class RouterApiClient
     {
         private readonly AppConfig _config;
-        private readonly CookieContainer _cookies = new CookieContainer();
         private bool _isLoggedIn = false;
+        private string _cookieHeader = null;
 
         public RouterApiClient(AppConfig config)
         {
@@ -211,9 +211,11 @@ namespace RouterTaskbarMonitor
                 HttpWebRequest req = (HttpWebRequest)WebRequest.Create(_config.RouterUrl + "/goform/goform_set_cmd_process");
                 req.Method = "POST";
                 req.ContentType = "application/x-www-form-urlencoded; charset=UTF-8";
+                req.Accept = "application/json, text/javascript, */*; q=0.01";
                 req.Referer = _config.RouterUrl + "/index.html";
+                req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
                 req.Headers.Add("Origin", _config.RouterUrl);
-                req.CookieContainer = _cookies;
+                req.Headers.Add("X-Requested-With", "XMLHttpRequest");
                 req.Timeout = 4000;
 
                 using (Stream stream = req.GetRequestStream())
@@ -222,15 +224,27 @@ namespace RouterTaskbarMonitor
                 }
 
                 using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
-                using (StreamReader reader = new StreamReader(resp.GetResponseStream()))
                 {
-                    string json = reader.ReadToEnd();
-                    JavaScriptSerializer serializer = new JavaScriptSerializer();
-                    Dictionary<string, object> dict = serializer.Deserialize<Dictionary<string, object>>(json);
-                    if (dict != null && dict.ContainsKey("result") && dict["result"].ToString() == "0")
+                    string rawSetCookie = resp.Headers["Set-Cookie"];
+                    if (!string.IsNullOrEmpty(rawSetCookie))
                     {
-                        _isLoggedIn = true;
-                        return true;
+                        string[] parts = rawSetCookie.Split(';');
+                        if (parts.Length > 0)
+                        {
+                            _cookieHeader = parts[0].Trim();
+                        }
+                    }
+
+                    using (StreamReader reader = new StreamReader(resp.GetResponseStream()))
+                    {
+                        string json = reader.ReadToEnd();
+                        JavaScriptSerializer serializer = new JavaScriptSerializer();
+                        Dictionary<string, object> dict = serializer.Deserialize<Dictionary<string, object>>(json);
+                        if (dict != null && dict.ContainsKey("result") && dict["result"].ToString() == "0")
+                        {
+                            _isLoggedIn = true;
+                            return true;
+                        }
                     }
                 }
             }
@@ -244,7 +258,7 @@ namespace RouterTaskbarMonitor
         public RouterMetrics FetchMetrics()
         {
             RouterMetrics metrics = new RouterMetrics();
-            if (!_isLoggedIn)
+            if (!_isLoggedIn || string.IsNullOrEmpty(_cookieHeader))
             {
                 if (!Login())
                 {
@@ -259,11 +273,18 @@ namespace RouterTaskbarMonitor
                 string signalUrl = _config.RouterUrl + "/goform/goform_get_cmd_process?isTest=false&cmd=network_type,rssi,rscp,lte_rsrp,Z_rssi,Z_rscp,Z_rsrp,Z_rsrq,wan_lte_ca,lte_ca_pcell_bandwidth,lte_ca_pcell_band,lte_ca_scell_bandwidth,lte_ca_scell_band,ZCELLINFO_band&multi_data=1&_=" + DateTime.Now.Ticks;
                 Dictionary<string, object> sigDict = GetJson(signalUrl);
 
-                if (sigDict == null || (sigDict.ContainsKey("loginfo") && sigDict["loginfo"].ToString() == "logout"))
+                bool isLoggedOut = sigDict == null ||
+                                   (sigDict.ContainsKey("loginfo") && sigDict["loginfo"].ToString() == "logout") ||
+                                   (sigDict.ContainsKey("lte_rsrp") && string.IsNullOrEmpty(sigDict["lte_rsrp"].ToString()) &&
+                                    sigDict.ContainsKey("Z_rsrp") && string.IsNullOrEmpty(sigDict["Z_rsrp"].ToString()));
+
+                if (isLoggedOut)
                 {
                     _isLoggedIn = false;
-                    Login();
-                    sigDict = GetJson(signalUrl);
+                    if (Login())
+                    {
+                        sigDict = GetJson(signalUrl);
+                    }
                 }
 
                 if (sigDict != null)
@@ -321,8 +342,14 @@ namespace RouterTaskbarMonitor
             {
                 HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
                 req.Method = "GET";
+                req.Accept = "application/json, text/javascript, */*; q=0.01";
                 req.Referer = _config.RouterUrl + "/index.html";
-                req.CookieContainer = _cookies;
+                req.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
+                req.Headers.Add("X-Requested-With", "XMLHttpRequest");
+                if (!string.IsNullOrEmpty(_cookieHeader))
+                {
+                    req.Headers.Add("Cookie", _cookieHeader);
+                }
                 req.Timeout = 3000;
 
                 using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
