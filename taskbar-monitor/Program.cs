@@ -675,7 +675,7 @@ namespace RouterTaskbarMonitor
             menu.BackColor = Color.FromArgb(32, 32, 32);
             menu.ForeColor = Color.White;
 
-            ToolStripMenuItem itemToggle = new ToolStripMenuItem("Show Taskbar Info Bar", null, (s, e) => ToggleBar())
+            ToolStripMenuItem itemToggle = new ToolStripMenuItem("Show Bar", null, (s, e) => ToggleBar())
             {
                 Checked = _config.ShowTaskbarBar
             };
@@ -715,7 +715,7 @@ namespace RouterTaskbarMonitor
             });
             menu.Items.Add(itemResetPos);
 
-            ToolStripMenuItem itemSettings = new ToolStripMenuItem("Router & App Settings...", null, (s, e) =>
+            ToolStripMenuItem itemSettings = new ToolStripMenuItem("Settings", null, (s, e) =>
             {
                 using (SettingsForm form = new SettingsForm(_config))
                 {

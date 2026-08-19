@@ -8,7 +8,7 @@ Analyze network packets and API endpoints of the ZTE MF282 / DreiTube Router to 
 > The target router IP address active on your network is **`192.168.0.1`** (the router default gateway address), whereas `192.168.1.1` timed out. Router credentials are stored locally in `.env` (see `.env.example`: `ROUTER_PASSWORD=<your-router-password>`).
 
 > [!NOTE]
-> All technical details, exact API endpoints, request payloads, response schemas, and authentication hashing details have been documented in [`router_api_analysis_and_strategy.md`](file:///C:/Users/simon/.gemini/antigravity/brain/ae1febfc-8f9a-4451-bf82-137e8e17e113/router_api_analysis_and_strategy.md).
+> All technical details, exact API endpoints, request payloads, response schemas, and authentication hashing details have been documented in [`router_api_analysis_and_strategy.md`](router_api_analysis_and_strategy.md).
 
 ## Open Questions
 
@@ -22,7 +22,7 @@ Analyze network packets and API endpoints of the ZTE MF282 / DreiTube Router to 
 ## Proposed Architecture & Strategy
 
 Detailed documentation created in:
-- [router_api_analysis_and_strategy.md](file:///C:/Users/simon/.gemini/antigravity/brain/ae1febfc-8f9a-4451-bf82-137e8e17e113/router_api_analysis_and_strategy.md)
+- [router_api_analysis_and_strategy.md](router_api_analysis_and_strategy.md)
 
 ### Key Discovered API Specifications
 
