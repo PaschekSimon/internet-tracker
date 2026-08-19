@@ -186,6 +186,12 @@ namespace RouterTaskbarMonitor
             _config = config;
         }
 
+        public void ResetSession()
+        {
+            _isLoggedIn = false;
+            _cookieHeader = null;
+        }
+
         private static string ComputePasswordHash(string rawPassword)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(rawPassword);
@@ -622,6 +628,15 @@ namespace RouterTaskbarMonitor
             if (_config.ShowTaskbarBar)
             {
                 _infoForm.Show();
+                ThreadPool.QueueUserWorkItem(o => DoPoll());
+            }
+            else
+            {
+                try
+                {
+                    _trayIcon.Text = "Router Monitor (Paused - Left-click to show)";
+                }
+                catch { }
             }
 
             _pollTimer = new System.Windows.Forms.Timer
@@ -630,9 +645,6 @@ namespace RouterTaskbarMonitor
             };
             _pollTimer.Tick += PollTimer_Tick;
             _pollTimer.Start();
-
-            // First poll immediately
-            ThreadPool.QueueUserWorkItem(o => DoPoll());
         }
 
         private Icon CreateTrayIcon()
@@ -769,22 +781,40 @@ namespace RouterTaskbarMonitor
             if (_config.ShowTaskbarBar)
             {
                 _infoForm.Show();
+                ThreadPool.QueueUserWorkItem(o => DoPoll());
             }
             else
             {
                 _infoForm.Hide();
+                _apiClient.ResetSession();
+                try
+                {
+                    if (_trayIcon != null)
+                    {
+                        _trayIcon.Text = "Router Monitor (Paused - Left-click to show)";
+                    }
+                }
+                catch { }
             }
             RebuildContextMenu();
         }
 
         private void PollTimer_Tick(object sender, EventArgs e)
         {
-            ThreadPool.QueueUserWorkItem(o => DoPoll());
+            if (_config.ShowTaskbarBar)
+            {
+                ThreadPool.QueueUserWorkItem(o => DoPoll());
+            }
         }
 
         private void DoPoll()
         {
+            if (!_config.ShowTaskbarBar) return;
+
             RouterMetrics metrics = _apiClient.FetchMetrics();
+
+            if (!_config.ShowTaskbarBar) return;
+
             _infoForm.UpdateMetrics(metrics);
 
             string trayText = metrics.IsConnected
@@ -793,7 +823,7 @@ namespace RouterTaskbarMonitor
 
             if (trayText.Length > 63) trayText = trayText.Substring(0, 63);
 
-            if (_trayIcon != null)
+            if (_trayIcon != null && _config.ShowTaskbarBar)
             {
                 try
                 {
